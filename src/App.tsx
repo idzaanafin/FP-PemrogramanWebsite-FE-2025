@@ -1,17 +1,18 @@
-import { Routes, Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
+import CreateProject from "./pages/CreateProject";
+import CreateQuiz from "./pages/CreateQuiz";
+import EditQuiz from "./pages/EditQuiz";
 import HomePage from "./pages/HomePage";
+import Login from "./pages/Login";
+import MyProjectsPage from "./pages/MyProjectsPage";
+import ProfilePage from "./pages/ProfilePage";
+import Quiz from "./pages/Quiz";
 import Register from "./pages/Register";
 import Sandbox from "./pages/Sandbox";
-import Login from "./pages/Login";
-import ProfilePage from "./pages/ProfilePage";
-import MyProjectsPage from "./pages/MyProjectsPage";
-import CreateQuiz from "./pages/CreateQuiz";
-import CreateProject from "./pages/CreateProject";
-import EditQuiz from "./pages/EditQuiz";
-import Quiz from "./pages/Quiz";
-import ProtectedRoute from "./routes/ProtectedRoutes";
 import CreateSpeedSorting from "./pages/speed-sorting/CreateSpeedSorting";
+import EditSpeedSorting from "./pages/speed-sorting/EditSpeedSorting";
 import SpeedSorting from "./pages/speed-sorting/SpeedSorting";
+import ProtectedRoute from "./routes/ProtectedRoutes";
 
 function App() {
   return (
@@ -34,6 +35,10 @@ function App() {
             element={<CreateSpeedSorting />}
           />
           <Route path="/quiz/edit/:id" element={<EditQuiz />} />
+          <Route
+            path="/speed-sorting/edit/:id"
+            element={<EditSpeedSorting />}
+          />
         </Route>
       </Routes>
     </>

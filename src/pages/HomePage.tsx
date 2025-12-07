@@ -183,19 +183,8 @@ export default function HomePage() {
   };
 
   const GameCard = ({ game }: { game: Game }) => {
-    let gametype = "";
     const handlePlayGame = () => {
-      switch (game.game_template) {
-        case "quiz":
-          gametype = "quiz";
-          break;
-        case "speed-sorting":
-          gametype = "speed-sorting";
-          break;
-        default:
-          gametype = "";
-      }
-      window.location.href = `/${gametype}/play/${game.id}`;
+      window.location.href = `/${game.game_template}/play/${game.id}`;
     };
 
     return (
@@ -224,7 +213,7 @@ export default function HomePage() {
               {game.name}
             </Typography>
             <Badge variant="secondary" className="shrink-0">
-              Quiz
+              {game.game_template.replace(/-/g, " ").toUpperCase()}
             </Badge>
           </div>
 

@@ -15,13 +15,15 @@ import { EyeIcon, SaveIcon, X } from "lucide-react";
 interface ActionButtonsProps {
   isSubmitting: boolean;
   onCancel: () => void;
-  onSubmit: () => void;
+  onSubmit: (isPublished: boolean) => void;
+  submitLabel?: string;
 }
 
 export function ActionButtons({
   isSubmitting,
   onCancel,
   onSubmit,
+  submitLabel = "Create Game",
 }: ActionButtonsProps) {
   return (
     <div className="flex gap-4 justify-end w-full">
@@ -45,21 +47,26 @@ export function ActionButtons({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Button size="sm" variant="outline" disabled={isSubmitting}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={isSubmitting}
+        onClick={() => onSubmit(false)}
+      >
         <SaveIcon /> Save Draft
       </Button>
       <Button
         size="sm"
         variant="outline"
         className="bg-black text-white"
-        onClick={onSubmit}
+        onClick={() => onSubmit(true)}
         disabled={isSubmitting}
       >
         {isSubmitting ? (
-          <>Creating...</>
+          <>{submitLabel === "Update Game" ? "Updating..." : "Creating..."}</>
         ) : (
           <>
-            <EyeIcon /> Publish
+            <EyeIcon /> {submitLabel === "Update Game" ? "Update" : "Publish"}
           </>
         )}
       </Button>

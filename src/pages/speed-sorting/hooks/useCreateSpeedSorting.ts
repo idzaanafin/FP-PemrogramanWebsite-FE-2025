@@ -8,13 +8,13 @@ interface SpeedSortingCategory {
 interface SpeedSortingItem {
   value: string;
   category_index: number;
-  type: "text" | "file";
+  type: "text" | "image";
 }
 
 interface SpeedSortingPayload {
   name: string;
   description?: string;
-  is_publish_immediately?: boolean;
+  is_published?: boolean;
   thumbnail_image: File;
   categories: SpeedSortingCategory[];
   items: SpeedSortingItem[];
@@ -31,10 +31,7 @@ export const useCreateSpeedSorting = async (payload: SpeedSortingPayload) => {
 
     formData.append("categories", JSON.stringify(payload.categories));
     formData.append("items", JSON.stringify(payload.items));
-    formData.append(
-      "is_publish_immediately",
-      payload.is_publish_immediately ? "true" : "false",
-    );
+    formData.append("is_published", payload.is_published ? "true" : "false");
 
     const res = await api.post("/api/game/game-type/speed-sorting", formData, {
       headers: {

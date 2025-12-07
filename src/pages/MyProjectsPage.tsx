@@ -197,7 +197,7 @@ export default function MyProjectsPage() {
                     size="sm"
                     className="h-7"
                     onClick={() => {
-                      navigate(`/quiz/edit/${project.id}`);
+                      navigate(`/${project.game_template}/edit/${project.id}`);
                     }}
                   >
                     <Edit />

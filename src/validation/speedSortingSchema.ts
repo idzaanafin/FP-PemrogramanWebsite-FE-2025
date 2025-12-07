@@ -38,7 +38,8 @@ const imageWordSchema = z.object({
   type: z.literal("image"),
   text: z.string().optional().default(""),
   categoryIndex: z.number().min(0, "Invalid category selection"),
-  image: z.instanceof(File, { message: "Image is required" }),
+  image: z.union([z.instanceof(File), z.null()]).optional(),
+  existingImageUrl: z.string().optional(),
 });
 
 const wordSchema = z.discriminatedUnion("type", [
@@ -56,7 +57,12 @@ export const speedSortingSchema = z.object({
     .string()
     .max(500, "Description must be less than 500 characters")
     .optional(),
-  thumbnail: z.instanceof(File, { message: "Thumbnail is required" }),
+  thumbnail: z
+    .union([
+      z.instanceof(File, { message: "Thumbnail is required" }),
+      z.string(), // Allow string for existing thumbnail URLs
+    ])
+    .optional(),
   categories: speedSortingCategorySchema,
   words: z
     .array(wordSchema)

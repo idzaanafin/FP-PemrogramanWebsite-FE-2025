@@ -109,12 +109,11 @@ export function WordsForm({
             </div>
 
             {word.type === "image" ? (
-              /* Stack vertically for image type */
               <div className="space-y-4">
                 <div>
                   <Dropzone
                     label="Word Image"
-                    required={true}
+                    required={!word.existingImageUrl}
                     maxSize={5 * 1024 * 1024}
                     allowedTypes={[
                       "image/png",
@@ -122,7 +121,12 @@ export function WordsForm({
                       "image/jpg",
                       "image/webp",
                     ]}
-                    defaultValue={word.image}
+                    defaultValue={
+                      word.image ||
+                      (word.existingImageUrl
+                        ? `${import.meta.env.VITE_API_URL}/${word.existingImageUrl}`
+                        : null)
+                    }
                     onChange={(file) => {
                       onUpdateWord(index, "image", file);
                       onClearError(`words.${index}.image`);

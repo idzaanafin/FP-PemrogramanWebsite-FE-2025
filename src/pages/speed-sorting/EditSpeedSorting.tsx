@@ -2,28 +2,68 @@ import { Button } from "@/components/ui/button";
 import { Typography } from "@/components/ui/typography";
 import { speedSortingSchema } from "@/validation/speedSortingSchema";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { ActionButtons } from "./components/ActionButtons";
 import { CategoriesForm } from "./components/CategoriesForm";
 import { GameInfoForm } from "./components/GameInfoForm";
 import { WordsForm } from "./components/WordsForm";
-import { useCreateSpeedSorting } from "./hooks/useCreateSpeedSorting";
+import { useGetDetailSpeedSorting } from "./hooks/useGetDetailSpeedSorting";
+import { useUpdateSpeedSorting } from "./hooks/useUpdateSpeedSorting";
 import { type WordItem } from "./types";
 
-export default function CreateSpeedSorting() {
+export default function EditSpeedSorting() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const { data: detail, isLoading, error } = useGetDetailSpeedSorting(id!);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([""]);
   const [words, setWords] = useState<WordItem[]>([
     { text: "", categoryIndex: 0, image: null, type: "text" },
   ]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (detail) {
+      setTitle(detail.name || "");
+      setDescription(detail.description || "");
+
+      if (detail.thumbnail_image) {
+        setThumbnailPreview(
+          `${import.meta.env.VITE_API_URL}/${detail.thumbnail_image}`,
+        );
+      } else {
+        setThumbnailPreview(null);
+      }
+      setThumbnail(null);
+
+      setCategories(detail.categories.map((cat) => cat.name) || [""]);
+
+      const loadedWords: WordItem[] = detail.items.map((item) => ({
+        text: item.type === "text" ? item.value : "",
+        categoryIndex:
+          (item.category_index ?? item.category_id)
+            ? detail.categories.findIndex((cat) => cat.id === item.category_id)
+            : 0,
+        image: null,
+        type: item.type === "image" ? "image" : "text",
+        existingImageUrl: item.type === "image" ? item.value : undefined,
+      }));
+
+      setWords(
+        loadedWords.length > 0
+          ? loadedWords
+          : [{ text: "", categoryIndex: 0, image: null, type: "text" }],
+      );
+    }
+  }, [detail]);
 
   const clearFormError = (key: string) => {
     if (formErrors[key]) {
@@ -115,6 +155,7 @@ export default function CreateSpeedSorting() {
       if (field === "type") {
         if (value === "text") {
           updates.image = null;
+          updates.existingImageUrl = undefined;
         } else if (value === "image") {
           updates.text = "";
         }
@@ -130,22 +171,24 @@ export default function CreateSpeedSorting() {
     }
   };
 
+  const handleThumbnailChange = (file: File | null) => {
+    setThumbnail(file);
+    if (file) {
+      setThumbnailPreview(URL.createObjectURL(file));
+    }
+    clearFormError("thumbnail");
+  };
+
   const validateForm = () => {
     const allErrors: Record<string, string> = {};
     let isValid = true;
-
-    if (!thumbnail) {
-      allErrors.thumbnail = "Thumbnail is required";
-      isValid = false;
-    }
-
     const filteredCategories = categories.filter((cat) => cat.trim() !== "");
 
     const filteredWords = words.filter((word) => {
       if (word.type === "text") {
         return word.text.trim() !== "";
       } else if (word.type === "image") {
-        return word.image !== null;
+        return word.image !== null || word.existingImageUrl;
       }
       return false;
     });
@@ -153,7 +196,7 @@ export default function CreateSpeedSorting() {
     const validationPayload = {
       title: title.trim(),
       description: description.trim(),
-      thumbnail: thumbnail,
+      thumbnail: thumbnail || thumbnailPreview || "existing",
       categories: filteredCategories,
       words: filteredWords,
     };
@@ -188,7 +231,7 @@ export default function CreateSpeedSorting() {
           isValid = false;
         }
       } else if (word.type === "image") {
-        if (!word.image) {
+        if (!word.image && !word.existingImageUrl) {
           allErrors[`words.${index}.image`] = "Image is required";
           isValid = false;
         }
@@ -231,8 +274,6 @@ export default function CreateSpeedSorting() {
       }
     });
 
-    console.log(allErrors);
-
     setFormErrors(filteredErrors);
     return isValid;
   };
@@ -245,7 +286,7 @@ export default function CreateSpeedSorting() {
       reader.onerror = reject;
     });
 
-  const create = useCreateSpeedSorting;
+  const update = useUpdateSpeedSorting;
 
   const handleSubmit = async (isPublished: boolean) => {
     if (!validateForm()) {
@@ -260,10 +301,11 @@ export default function CreateSpeedSorting() {
         if (word.type === "text") {
           return word.text.trim() !== "";
         } else if (word.type === "image") {
-          return word.image !== null;
+          return word.image !== null || word.existingImageUrl;
         }
         return false;
       });
+
       const gameData = {
         title: title.trim(),
         description: description.trim(),
@@ -272,37 +314,64 @@ export default function CreateSpeedSorting() {
         words: filteredWords,
       };
 
-      await create({
+      await update(id!, {
         name: gameData.title,
         description: gameData.description,
-        thumbnail_image: gameData.thumbnail!,
+        thumbnail_image: thumbnail || undefined,
         is_published: isPublished,
         categories: gameData.categories.map((name) => ({ name })),
         items: await Promise.all(
-          gameData.words.map(async (word) => ({
-            type: word.image ? "image" : "text",
-            value: word.image ? await toBase64(word.image) : word.text,
-            category_index: word.categoryIndex,
-          })),
+          gameData.words.map(async (word) => {
+            if (word.type === "image" && word.image) {
+              return {
+                type: "image" as const,
+                value: await toBase64(word.image),
+                category_index: word.categoryIndex,
+              };
+            } else if (word.type === "image" && word.existingImageUrl) {
+              return {
+                type: "image" as const,
+                value: word.existingImageUrl,
+                category_index: word.categoryIndex,
+              };
+            } else {
+              return {
+                type: "text" as const,
+                value: word.text,
+                category_index: word.categoryIndex,
+              };
+            }
+          }),
         ),
       });
+
       toast.success(
-        `Speed sorting game ${isPublished ? "published" : "saved as draft"} successfully`,
+        `Speed sorting game ${isPublished ? "updated and published" : "saved as draft"} successfully`,
       );
-      setTitle("");
-      setDescription("");
-      setThumbnail(null);
-      setCategories([""]);
-      setWords([{ text: "", categoryIndex: 0, image: null, type: "text" }]);
-      setFormErrors({});
-      navigate("/create-projects");
+      navigate("/my-projects");
     } catch (error) {
-      console.error("Error creating speed sorting game:", error);
-      toast.error("Failed to create speed sorting game");
+      console.error("Error updating speed sorting game:", error);
+      toast.error("Failed to update speed sorting game");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        Loading...
+      </div>
+    );
+  }
+
+  if (error || !detail) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        {error || "Game not found"}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-slate-50 min-h-screen flex flex-col">
@@ -311,7 +380,7 @@ export default function CreateSpeedSorting() {
           size="sm"
           variant="ghost"
           className="hidden md:flex"
-          onClick={() => navigate("/create-projects")}
+          onClick={() => navigate("/my-projects")}
         >
           <ArrowLeft /> Back
         </Button>
@@ -319,7 +388,7 @@ export default function CreateSpeedSorting() {
           size="sm"
           variant="ghost"
           className="block md:hidden"
-          onClick={() => navigate("/create-projects")}
+          onClick={() => navigate("/my-projects")}
         >
           <ArrowLeft />
         </Button>
@@ -327,19 +396,20 @@ export default function CreateSpeedSorting() {
       <div className="w-full h-full p-8 justify-center items-center flex flex-col">
         <div className="max-w-3xl w-full space-y-6">
           <div>
-            <Typography variant="h3">Create Speed Sorting Game</Typography>
+            <Typography variant="h3">Edit Speed Sorting Game</Typography>
             <Typography variant="p" className="mt-2">
-              This is where you can create a new Speed Sorting game.
+              Update your Speed Sorting game.
             </Typography>
           </div>
           <GameInfoForm
             title={title}
             description={description}
             thumbnail={thumbnail}
+            existingThumbnail={thumbnailPreview}
             formErrors={formErrors}
             onTitleChange={setTitle}
             onDescriptionChange={setDescription}
-            onThumbnailChange={setThumbnail}
+            onThumbnailChange={handleThumbnailChange}
             onClearError={clearFormError}
           />
 
@@ -363,8 +433,9 @@ export default function CreateSpeedSorting() {
 
           <ActionButtons
             isSubmitting={isSubmitting}
-            onCancel={() => navigate("/create-projects")}
+            onCancel={() => navigate("/my-projects")}
             onSubmit={handleSubmit}
+            submitLabel="Update Game"
           />
         </div>
       </div>

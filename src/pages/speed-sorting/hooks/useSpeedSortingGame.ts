@@ -59,7 +59,7 @@ interface SpeedSortingDetail {
     value: string;
     category_index?: number;
     category_id?: string;
-    type: "text" | "file";
+    type: "text" | "image";
   }[];
 }
 

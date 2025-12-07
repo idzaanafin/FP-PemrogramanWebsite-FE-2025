@@ -5,7 +5,7 @@ import { GameEndScreen } from "./components/GameEndScreen";
 import { GameHeader } from "./components/GameHeader";
 import { StartScreen } from "./components/StartScreen";
 import { WordCardsAnimation } from "./components/WordCardsAnimation";
-import { useGetDetailSpeedSorting } from "./hooks/useGetDetailSpeedSorting";
+import { useGetPlaySpeedSorting } from "./hooks/useGetPlaySpeedSorting";
 import {
   getScrollAnimation,
   useSpeedSortingGame,
@@ -14,7 +14,7 @@ import {
 export default function SpeedSorting() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: detail, isLoading, error } = useGetDetailSpeedSorting(id!);
+  const { data: detail, isLoading, error } = useGetPlaySpeedSorting(id!);
 
   const game = useSpeedSortingGame(detail);
   const scrollAnimation = getScrollAnimation();

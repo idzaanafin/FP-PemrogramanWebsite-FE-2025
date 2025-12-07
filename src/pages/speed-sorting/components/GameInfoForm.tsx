@@ -5,6 +5,7 @@ interface GameInfoFormProps {
   title: string;
   description: string;
   thumbnail: File | null;
+  existingThumbnail?: string | null;
   formErrors: Record<string, string>;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -16,6 +17,7 @@ export function GameInfoForm({
   title,
   description,
   thumbnail,
+  existingThumbnail,
   formErrors,
   onTitleChange,
   onDescriptionChange,
@@ -73,7 +75,7 @@ export function GameInfoForm({
         <div>
           <Dropzone
             label="Thumbnail Image"
-            required
+            required={!existingThumbnail}
             maxSize={5 * 1024 * 1024}
             allowedTypes={[
               "image/png",
@@ -81,7 +83,7 @@ export function GameInfoForm({
               "image/jpg",
               "image/webp",
             ]}
-            defaultValue={thumbnail}
+            defaultValue={thumbnail || existingThumbnail || null}
             onChange={(file) => {
               onThumbnailChange(file);
               onClearError("thumbnail");

@@ -3,4 +3,5 @@ export interface WordItem {
   categoryIndex: number;
   image?: File | null;
   type: "text" | "image";
+  existingImageUrl?: string;
 }

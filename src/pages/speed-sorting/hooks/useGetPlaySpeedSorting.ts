@@ -1,5 +1,5 @@
+import { useState, useEffect } from "react";
 import api from "@/api/axios";
-import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 interface SpeedSortingDetailResponse {
@@ -17,7 +17,7 @@ interface SpeedSortingDetailResponse {
   }[];
 }
 
-export const useGetDetailSpeedSorting = (id: string) => {
+export const useGetPlaySpeedSorting = (id: string) => {
   const [data, setData] = useState<SpeedSortingDetailResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,9 @@ export const useGetDetailSpeedSorting = (id: string) => {
       try {
         setIsLoading(true);
         setError(null);
-        const res = await api.get(`/api/game/game-type/speed-sorting/${id}`);
+        const res = await api.get(
+          `/api/game/game-type/speed-sorting/${id}/play`,
+        );
         setData(res.data.data as SpeedSortingDetailResponse);
       } catch (error) {
         console.log(error);
