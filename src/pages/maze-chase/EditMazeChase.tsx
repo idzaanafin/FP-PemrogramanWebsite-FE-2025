@@ -76,6 +76,7 @@ function EditMazeChase() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [showMapDropdown, setShowMapDropdown] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Data State
   const [title, setTitle] = useState("");
@@ -100,10 +101,15 @@ function EditMazeChase() {
 
   // --- Fetch Data Logic ---
   useEffect(() => {
-    if (!id) return setLoading(false);
+    if (!id) {
+      setLoading(false);
+      setError("No game ID provided");
+      return;
+    }
 
     const fetchMazeChase = async () => {
       setLoading(true);
+      setError(null);
       try {
         const res = await api.get(`/api/game/game-type/maze-chase/${id}`);
         const data = res.data.data;
@@ -113,9 +119,7 @@ function EditMazeChase() {
         setMapId(data.map_id || "");
 
         if (data.thumbnail_image) {
-          setThumbnailPreview(
-            `${import.meta.env.VITE_API_URL}/${data.thumbnail_image}`,
-          );
+          setThumbnailPreview(`${data.thumbnail_image}`);
         } else setThumbnailPreview(null);
         setThumbnail(null);
 
@@ -158,8 +162,32 @@ function EditMazeChase() {
           countdownMinutes: Number(data.game_json?.countdown_minutes ?? 5),
         });
       } catch (err) {
+        let errorMessage = "Failed to load maze chase game";
+
+        if (err instanceof Error) {
+          errorMessage = err.message;
+        }
+
+        if (err && typeof err === "object" && "response" in err) {
+          const axiosError = err as {
+            response?: { status?: number; data?: { message?: string } };
+          };
+          if (axiosError.response?.data?.message) {
+            errorMessage = axiosError.response.data.message;
+          }
+          if (axiosError.response?.status === 404) {
+            setError(
+              `Game not found. The game with ID "${id}" doesn't exist or has been deleted.`,
+            );
+          } else {
+            setError(errorMessage);
+          }
+        } else {
+          setError(errorMessage);
+        }
+
         console.error(err);
-        toast.error("Failed to load maze chase game data");
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -225,7 +253,86 @@ function EditMazeChase() {
     if (file) setThumbnailPreview(URL.createObjectURL(file));
   };
 
+  // --- Validation Function ---
+  const validateAllQuestions = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // Check title
+    if (!title.trim()) {
+      newErrors["title"] = "Game title is required";
+    } else if (title.trim().length < 3) {
+      newErrors["title"] = "Game title must be at least 3 characters";
+    }
+
+    // Check description
+    if (!description.trim()) {
+      newErrors["description"] = "Description is required";
+    } else if (description.trim().length < 5) {
+      newErrors["description"] = "Description must be at least 5 characters";
+    }
+
+    // Check mapId
+    if (!mapId) {
+      newErrors["mapId"] = "Map selection is required";
+    }
+
+    // Check thumbnail
+    if (!thumbnail && !thumbnailPreview) {
+      newErrors["thumbnail"] = "Thumbnail image is required";
+    }
+
+    // Validate each question
+    questions.forEach((q, qIndex) => {
+      // Check question text
+      if (!q.questionText.trim()) {
+        newErrors[`questions.${qIndex}.text`] = "Question text is required";
+      } else if (q.questionText.trim().length < 5) {
+        newErrors[`questions.${qIndex}.text`] =
+          "Question must be at least 5 characters";
+      }
+
+      // Check answers
+      const hasAtLeastTwoAnswers =
+        q.answers.filter((a) => a.text.trim()).length >= 2;
+      if (!hasAtLeastTwoAnswers) {
+        newErrors[`questions.${qIndex}.answers`] =
+          "Minimum 2 answer options required";
+      }
+
+      // Check if all filled answers have text
+      q.answers.forEach((a, aIndex) => {
+        if (a.text.trim() === "") {
+          newErrors[`questions.${qIndex}.answers.${aIndex}`] =
+            "Empty answer fields detected";
+        }
+      });
+
+      // Check if at least one answer is correct
+      const hasCorrectAnswer = q.answers.some((a) => a.isCorrect);
+      if (!hasCorrectAnswer) {
+        newErrors[`questions.${qIndex}.correct`] =
+          "Must mark one answer as correct";
+      }
+    });
+
+    // Check countdown timer
+    if (settings.countdownMinutes < 1 || settings.countdownMinutes > 60) {
+      newErrors["settings.countdownMinutes"] =
+        "Countdown must be between 1-60 minutes";
+    }
+
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSaveDraft = () => {
+    // Validate before saving draft
+    if (!validateAllQuestions()) {
+      const errorList = Object.values(formErrors).slice(0, 3).join("\n• ");
+      toast.error(`Please fix these errors:\n• ${errorList}`);
+      return;
+    }
+
     const draftData = {
       title,
       description,
@@ -247,16 +354,13 @@ function EditMazeChase() {
 
   // --- Submit Handler ---
   const handleSubmit = async () => {
-    if (!thumbnail && !thumbnailPreview) {
-      setFormErrors((prev) => ({
-        ...prev,
-        thumbnail: "Thumbnail is required",
-      }));
-      return toast.error("Thumbnail is required");
-    }
-    if (!mapId) {
-      setFormErrors((prev) => ({ ...prev, mapId: "Map ID is required" }));
-      return toast.error("Map ID is required");
+    // Validate all questions first
+    if (!validateAllQuestions()) {
+      const errorCount = Object.keys(formErrors).length;
+      toast.error(
+        `Please fix ${errorCount} validation error(s) before updating the maze`,
+      );
+      return;
     }
 
     const validationPayload = {
@@ -382,6 +486,29 @@ function EditMazeChase() {
     );
   }
 
+  if (error) {
+    return (
+      <div
+        className="w-full h-screen flex justify-center items-center bg-cover bg-fixed bg-center"
+        style={{ backgroundImage: `url(${backgroundImage})` }}
+      >
+        <div className="backdrop-blur-2xl bg-red-950/40 p-8 rounded-2xl shadow-2xl flex flex-col items-center border border-red-700/50 max-w-md">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="font-gothic text-2xl text-red-400 mb-4 text-center">
+            Error Loading Game
+          </h2>
+          <p className="text-gray-300 text-center mb-6 text-sm">{error}</p>
+          <Button
+            onClick={() => navigate("/my-projects")}
+            className="bg-gradient-to-r from-[#c9a961] to-[#a08347] hover:from-[#a08347] hover:to-[#c9a961] text-gray-900 font-semibold px-6 py-2 rounded-xl transition-all"
+          >
+            Back to Projects
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="w-full min-h-screen bg-cover bg-fixed bg-center text-gray-300 relative"
@@ -431,14 +558,15 @@ function EditMazeChase() {
       {/* Main Content */}
       <div className="w-full py-12 px-4 md:px-8 flex justify-center font-body">
         <div className="max-w-5xl w-full">
-          {/* Hero Card */}
+          {/* Hero Card dengan Glass Effect */}
           <div className="backdrop-blur-2xl bg-black/60 rounded-3xl border border-gray-700/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] p-10 md:p-14 mb-8">
             <div className="text-center space-y-6">
               <h1 className="font-gothic text-5xl md:text-7xl text-[#c9a961] tracking-wider mb-4">
                 Edit Your Maze
               </h1>
               <p className="text-gray-400 text-lg md:text-xl leading-relaxed max-w-3xl mx-auto">
-                Modify the challenges and pathways of your existing labyrinth
+                Refine your maze chase experience with updated challenges and
+                mysterious pathways
               </p>
             </div>
           </div>
@@ -648,17 +776,20 @@ function EditMazeChase() {
                   </Label>
                   <textarea
                     placeholder="What mystery lies ahead..."
-                    className="w-full bg-black/70 border border-gray-700/50 text-gray-300 rounded-xl px-4 py-4 placeholder:text-gray-600 focus:border-[#c9a961]/50 transition-all resize-none"
+                    className={`w-full bg-black/70 border text-gray-300 rounded-xl px-4 py-4 placeholder:text-gray-600 focus:border-[#c9a961]/50 transition-all resize-none ${
+                      formErrors[`questions.${qIndex}.text`]
+                        ? "border-red-500/50"
+                        : "border-gray-700/50"
+                    }`}
                     rows={3}
                     value={q.questionText}
                     onChange={(e) =>
                       handleQuestionTextChange(qIndex, e.target.value)
                     }
                   />
-                  {formErrors[`questions.${qIndex}.questionText`] && (
+                  {formErrors[`questions.${qIndex}.text`] && (
                     <p className="text-red-400 text-sm flex items-center gap-1">
-                      <span>⚠</span>{" "}
-                      {formErrors[`questions.${qIndex}.questionText`]}
+                      <span>⚠</span> {formErrors[`questions.${qIndex}.text`]}
                     </p>
                   )}
                 </div>
@@ -670,12 +801,21 @@ function EditMazeChase() {
                       (Mark the correct answer)
                     </span>
                   </Label>
+                  {formErrors[`questions.${qIndex}.answers`] && (
+                    <p className="text-red-400 text-sm flex items-center gap-1">
+                      <span>⚠</span> {formErrors[`questions.${qIndex}.answers`]}
+                    </p>
+                  )}
                   <div className="space-y-3">
                     {q.answers.map((a, aIndex) => (
                       <div key={aIndex} className="flex items-center gap-3">
                         <Input
                           placeholder={`Option ${aIndex + 1}...`}
-                          className="flex-1 bg-black/70 border-gray-700/50 text-gray-300 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:border-[#c9a961]/50"
+                          className={`flex-1 bg-black/70 border text-gray-300 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:border-[#c9a961]/50 transition-all ${
+                            formErrors[`questions.${qIndex}.answers.${aIndex}`]
+                              ? "border-red-500/50"
+                              : "border-gray-700/50"
+                          }`}
                           value={a.text}
                           onChange={(e) =>
                             handleAnswerChange(qIndex, aIndex, e.target.value)
@@ -699,6 +839,11 @@ function EditMazeChase() {
                       </div>
                     ))}
                   </div>
+                  {formErrors[`questions.${qIndex}.correct`] && (
+                    <p className="text-red-400 text-sm flex items-center gap-1">
+                      <span>⚠</span> {formErrors[`questions.${qIndex}.correct`]}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

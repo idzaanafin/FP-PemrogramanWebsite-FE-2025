@@ -122,7 +122,74 @@ function CreateMazeChase() {
     setQuestions(newQuestions);
   };
 
+  // Validation helper function
+  const validateAllQuestions = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // Check basic fields
+    if (!title.trim()) {
+      newErrors["title"] = "Game title is required";
+    }
+    if (!description.trim()) {
+      newErrors["description"] = "Description is required";
+    }
+    if (!mapId) {
+      newErrors["mapId"] = "Map selection is required";
+    }
+    if (!thumbnail) {
+      newErrors["thumbnail"] = "Thumbnail image is required";
+    }
+
+    // Check each question
+    questions.forEach((q, qIndex) => {
+      // Check question text
+      if (!q.questionText.trim()) {
+        newErrors[`questions.${qIndex}.questionText`] =
+          "Question text is required";
+      }
+
+      // Check answers
+      const hasAtLeastTwoAnswers =
+        q.answers.filter((a) => a.text.trim()).length >= 2;
+      if (!hasAtLeastTwoAnswers) {
+        newErrors[`questions.${qIndex}.answers`] =
+          "Minimum 2 answer options required";
+      }
+
+      // Check if all filled answers have text
+      q.answers.forEach((a, aIndex) => {
+        if (a.text.trim() === "") {
+          newErrors[`questions.${qIndex}.answers.${aIndex}`] =
+            "Empty answer fields detected";
+        }
+      });
+
+      // Check if at least one answer is correct
+      const hasCorrectAnswer = q.answers.some((a) => a.isCorrect);
+      if (!hasCorrectAnswer) {
+        newErrors[`questions.${qIndex}.correct`] =
+          "Must mark one answer as correct";
+      }
+    });
+
+    // Check countdown timer
+    if (settings.countdownMinutes < 1 || settings.countdownMinutes > 60) {
+      newErrors["settings.countdownMinutes"] =
+        "Countdown must be between 1-60 minutes";
+    }
+
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSaveDraft = () => {
+    // Validate before saving draft
+    if (!validateAllQuestions()) {
+      const errorList = Object.values(formErrors).slice(0, 3).join("\n• ");
+      toast.error(`Please fix these errors:\n• ${errorList}`);
+      return;
+    }
+
     const draftData = {
       title,
       description,
@@ -143,8 +210,14 @@ function CreateMazeChase() {
   };
 
   const handleSubmit = async () => {
-    if (!thumbnail) return toast.error("Thumbnail is required");
-    if (!mapId) return toast.error("Map ID is required");
+    // Validate all questions first
+    if (!validateAllQuestions()) {
+      const errorCount = Object.keys(formErrors).length;
+      toast.error(
+        `Please fix ${errorCount} validation error(s) before creating the maze`,
+      );
+      return;
+    }
 
     // Build form-shaped object for validation (matches mazeChaseSchema)
     const formValues = {
@@ -421,7 +494,7 @@ function CreateMazeChase() {
             </div>
             <Button
               onClick={addQuestion}
-              disabled={questions.length >= 10}
+              disabled={questions.length >= 20}
               className="bg-gradient-to-r from-[#c9a961] to-[#a08347] hover:from-[#a08347] hover:to-[#c9a961] text-gray-900 font-semibold px-6 py-3 rounded-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus size={18} className="mr-2" /> Add Challenge
@@ -433,16 +506,36 @@ function CreateMazeChase() {
             {questions.map((q, qIndex) => (
               <div
                 key={qIndex}
-                className="backdrop-blur-2xl bg-black/60 rounded-3xl border border-gray-700/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] p-8 space-y-6 hover:border-[#c9a961]/30 transition-all duration-300"
+                className={`backdrop-blur-2xl rounded-3xl border shadow-[0_8px_32px_0_rgba(0,0,0,0.8)] p-8 space-y-6 transition-all duration-300 ${
+                  formErrors[`questions.${qIndex}.questionText`] ||
+                  formErrors[`questions.${qIndex}.answers`] ||
+                  formErrors[`questions.${qIndex}.correct`]
+                    ? "bg-red-950/40 border-red-700/50 hover:border-red-600/50"
+                    : "bg-black/60 border-gray-700/50 hover:border-[#c9a961]/30"
+                }`}
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-br from-[#c9a961] to-[#a08347] text-gray-900 font-bold px-4 py-2 rounded-xl shadow-lg">
+                    <div
+                      className={`font-bold px-4 py-2 rounded-xl shadow-lg transition-colors ${
+                        formErrors[`questions.${qIndex}.questionText`] ||
+                        formErrors[`questions.${qIndex}.answers`] ||
+                        formErrors[`questions.${qIndex}.correct`]
+                          ? "bg-red-600 text-white"
+                          : "bg-gradient-to-br from-[#c9a961] to-[#a08347] text-gray-900"
+                      }`}
+                    >
                       Q{qIndex + 1}
                     </div>
                     <Typography
                       variant="p"
-                      className="text-gray-300 font-semibold"
+                      className={`font-semibold ${
+                        formErrors[`questions.${qIndex}.questionText`] ||
+                        formErrors[`questions.${qIndex}.answers`] ||
+                        formErrors[`questions.${qIndex}.correct`]
+                          ? "text-red-400"
+                          : "text-gray-300"
+                      }`}
                     >
                       Challenge {qIndex + 1}
                     </Typography>
@@ -466,7 +559,11 @@ function CreateMazeChase() {
                   </Label>
                   <textarea
                     placeholder="What mystery lies ahead..."
-                    className="w-full bg-black/70 border border-gray-700/50 text-gray-300 rounded-xl px-4 py-4 placeholder:text-gray-600 focus:border-[#c9a961]/50 transition-all resize-none"
+                    className={`w-full rounded-xl px-4 py-4 placeholder:text-gray-600 transition-all resize-none ${
+                      formErrors[`questions.${qIndex}.questionText`]
+                        ? "bg-red-950/50 border-2 border-red-600 text-red-100 focus:border-red-500"
+                        : "bg-black/70 border border-gray-700/50 text-gray-300 focus:border-[#c9a961]/50"
+                    }`}
                     rows={3}
                     value={q.questionText}
                     onChange={(e) =>
@@ -481,8 +578,22 @@ function CreateMazeChase() {
                   )}
                 </div>
 
-                <div className="space-y-4 bg-black/40 p-6 rounded-2xl border border-gray-700/30">
-                  <Label className="text-gray-400 font-medium flex items-center gap-2">
+                <div
+                  className={`space-y-4 p-6 rounded-2xl border transition-all ${
+                    formErrors[`questions.${qIndex}.answers`] ||
+                    formErrors[`questions.${qIndex}.correct`]
+                      ? "bg-red-950/30 border-red-700/50"
+                      : "bg-black/40 border-gray-700/30"
+                  }`}
+                >
+                  <Label
+                    className={`font-medium flex items-center gap-2 ${
+                      formErrors[`questions.${qIndex}.answers`] ||
+                      formErrors[`questions.${qIndex}.correct`]
+                        ? "text-red-400"
+                        : "text-gray-400"
+                    }`}
+                  >
                     Answer Options <span className="text-[#c9a961]">*</span>
                     <span className="text-xs text-gray-600">
                       (Mark the correct answer)
@@ -493,7 +604,12 @@ function CreateMazeChase() {
                       <div key={aIndex} className="flex items-center gap-3">
                         <Input
                           placeholder={`Option ${aIndex + 1}...`}
-                          className="flex-1 bg-black/70 border-gray-700/50 text-gray-300 rounded-xl px-4 py-3 placeholder:text-gray-600 focus:border-[#c9a961]/50"
+                          className={`flex-1 rounded-xl px-4 py-3 placeholder:text-gray-600 transition-all ${
+                            formErrors[`questions.${qIndex}.answers`] ||
+                            formErrors[`questions.${qIndex}.answers.${aIndex}`]
+                              ? "bg-red-950/50 border-2 border-red-600 text-red-100 focus:border-red-500"
+                              : "bg-black/70 border border-gray-700/50 text-gray-300 focus:border-[#c9a961]/50"
+                          }`}
                           value={a.text}
                           onChange={(e) =>
                             handleAnswerChange(qIndex, aIndex, e.target.value)
@@ -507,16 +623,47 @@ function CreateMazeChase() {
                             handleCorrectAnswer(qIndex, Number(val))
                           }
                         >
-                          <div className="flex items-center gap-2 bg-black/50 px-4 py-3 rounded-xl border border-gray-700/30">
+                          <div
+                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${
+                              q.answers[aIndex].isCorrect
+                                ? "bg-green-950/40 border-green-700/50"
+                                : "bg-black/50 border-gray-700/30"
+                            }`}
+                          >
                             <RadioGroupItem value={aIndex.toString()} />
-                            <Label className="font-medium text-[#c9a961] cursor-pointer text-sm">
-                              Correct
+                            <Label
+                              className={`font-medium cursor-pointer text-sm ${
+                                q.answers[aIndex].isCorrect
+                                  ? "text-green-400"
+                                  : "text-[#c9a961]"
+                              }`}
+                            >
+                              {q.answers[aIndex].isCorrect
+                                ? "✓ Correct"
+                                : "Correct"}
                             </Label>
                           </div>
                         </RadioGroup>
                       </div>
                     ))}
                   </div>
+                  {(formErrors[`questions.${qIndex}.answers`] ||
+                    formErrors[`questions.${qIndex}.correct`]) && (
+                    <div className="mt-3 p-3 bg-red-950/50 rounded-lg border border-red-700/50">
+                      {formErrors[`questions.${qIndex}.answers`] && (
+                        <p className="text-red-400 text-sm flex items-center gap-1">
+                          <span>⚠</span>{" "}
+                          {formErrors[`questions.${qIndex}.answers`]}
+                        </p>
+                      )}
+                      {formErrors[`questions.${qIndex}.correct`] && (
+                        <p className="text-red-400 text-sm flex items-center gap-1">
+                          <span>⚠</span>{" "}
+                          {formErrors[`questions.${qIndex}.correct`]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
