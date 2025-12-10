@@ -14,10 +14,18 @@ export default defineConfig({
     host: true,
     port: 3000,
     allowedHosts: ["dev-wordit.it-its.id", "wordit.it-its.id"],
+    headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
+    },
   },
   preview: {
     host: true,
     port: 3001,
     allowedHosts: ["dev-wordit.it-its.id", "wordit.it-its.id"],
+    headers: {
+        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Cross-Origin-Opener-Policy": "same-origin",
+    },
   },
 });

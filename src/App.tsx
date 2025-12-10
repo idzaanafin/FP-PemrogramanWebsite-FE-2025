@@ -10,6 +10,7 @@ import CreateProject from "./pages/CreateProject";
 import EditQuiz from "./pages/EditQuiz";
 import Quiz from "./pages/Quiz";
 import MazeChase from "./pages/maze-chase/MazeChase";
+import GodotGame from "./pages/maze-chase/GodotGame";
 import CreateMazeChase from "./pages/maze-chase/CreateMazeChase";
 import EditMazeChase from "./pages/maze-chase/EditMazeChase";
 import ProtectedRoute from "./routes/ProtectedRoutes";
@@ -24,6 +25,7 @@ function App() {
         <Route path="/sandbox" element={<Sandbox />} />
         <Route path="/quiz/play/:id" element={<Quiz />} />
         <Route path="/maze-chase/play/:id" element={<MazeChase />} />
+        <Route path="/maze-chase/godot/:id" element={<GodotGame />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<ProfilePage />} />
